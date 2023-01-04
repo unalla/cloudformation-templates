@@ -1,0 +1,39 @@
+AWSTemplateFormatVersion: '2020-09-09'
+Description: Simple template to create an EC2 instance 
+Parameters:
+  AMI:
+    Type: AWS::EC2::Image::Id
+    Default: ami-08ddded491c27c224
+
+Resources:
+  ExampleEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId: !Ref AMI
+      SubnetId: !Ref VPCSubnet
+      Tags:
+        - Key: Name
+          Value: vpc-ec2-instance
+
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: 'true'
+      Tags:
+        - Key: Name
+          Value: vpc-ec2
+
+  VPCSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.0.0/24
+      AvailabilityZone:
+        !Select
+          - 0
+          - Fn::GetAZs: !Ref 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: vpc-ec2-subnet

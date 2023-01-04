@@ -1,0 +1,100 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: VPC Nested stack
+Parameters:
+  ApplicationName:
+    Type: String
+    Description: Enter the name of your application with no spaces.
+  SubnetAZ:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: Enter the availability zone for your subnet.
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: 'true'
+      Tags:
+        - Key: Name
+          Value:
+            !Join
+              - ''
+              - - !Ref ApplicationName
+                - '-vpc'
+
+  VPCSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.0.0/24
+      AvailabilityZone: !Ref SubnetAZ
+      Tags:
+        - Key: Name
+          Value:
+            !Join
+              - ''
+              - - !Ref ApplicationName
+                - '-subnet'
+
+  VPCSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Ref SubnetAZ
+      Tags:
+        - Key: Name
+          Value:
+            !Join
+              - ''
+              - - !Ref ApplicationName
+                - '-subnetb'
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Join [_, [!Ref 'AWS::StackName']]
+
+  GatewayToInternet:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ApplicationName}-vpc Public Routes
+
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayToInternet
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  SubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref VPCSubnetA
+
+  SubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref VPCSubnetB
+
+Outputs:
+  VPCId:
+    Value: !Ref VPC
+  SubnetA:
+    Value: !Ref VPCSubnetA
+  SubnetB:
+    Value: !Ref VPCSubnetB

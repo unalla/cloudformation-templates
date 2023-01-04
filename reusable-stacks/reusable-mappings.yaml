@@ -1,0 +1,136 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Template with Mappings
+Parameters:
+  ApplicationName:
+    Type: String
+    Default: Sample
+    Description: Enter the name of your application with no spaces.
+  SubnetAZ:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-west-2a
+    Description: Enter the availability zone for your subnet.
+  Platform:
+    Type: String
+    AllowedValues:
+      - dotnet
+      - node
+      - python
+    Default: node
+    ConstraintDescription: Must pick between dotnet, node, or python for your Application platform.
+
+Mappings:
+  EBPlatformMap:
+    dotnet:
+      version: 2.10.7
+      SolutionStackName: 64bit Windows Server 2019 v2.10.7 running IIS 10.0
+    node:
+      version: Node.js 16 AL2 version 5.6.3
+      SolutionStackName: 64bit Amazon Linux 2 v5.6.3 running Node.js 16
+    python:
+      version: Python 3.8 AL2 version 3.4.3
+      SolutionStackName: 64bit Amazon Linux 2 v3.4.3 running Python 3.8
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: 'true'
+      Tags:
+        - Key: Name
+          Value:
+            !Join
+              - ''
+              - - !Ref ApplicationName
+                - '-vpc'
+
+  VPCSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.0.0/24
+      AvailabilityZone: !Ref SubnetAZ
+      Tags:
+        - Key: Name
+          Value:
+            !Join
+              - ''
+              - - !Ref ApplicationName
+                - '-subnet'
+
+  EBApplication:
+    Type: AWS::ElasticBeanstalk::Application
+    Properties:
+      ApplicationName:
+        !Join
+          - ''
+          - - !Ref ApplicationName
+            - '-web'
+      Description: "Web interface for the Application"
+
+  EBEnvironment:
+    Type: AWS::ElasticBeanstalk::Environment
+    Properties:
+      ApplicationName: !Ref EBApplication
+      EnvironmentName:
+        !Join
+          - ''
+          - - !Ref ApplicationName
+            - '-web-env-'
+            - !Ref Platform
+      SolutionStackName:
+        !FindInMap
+          - EBPlatformMap
+          - !Ref Platform
+          - SolutionStackName
+      OptionSettings:
+        - Namespace: aws:elasticbeanstalk:environment
+          OptionName: EnvironmentType
+          Value: SingleInstance
+        - Namespace: aws:elasticbeanstalk:environment
+          OptionName: ServiceRole
+          Value: !Ref ServiceRole
+        - Namespace: aws:autoscaling:launchconfiguration
+          OptionName: IamInstanceProfile
+          Value: !Ref InstanceProfile
+
+  ServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: ''
+            Effect: Allow
+            Principal:
+              Service: 'elasticbeanstalk.amazonaws.com'
+            Action: 'sts:AssumeRole'
+            Condition:
+              StringEquals:
+                'sts:ExternalId': elasticbeanstalk
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSElasticBeanstalkService
+        - arn:aws:iam::aws:policy/service-role/AWSElasticBeanstalkEnhancedHealth
+      Path: /
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref InstanceProfileRole
+  InstanceProfileRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - 'ec2.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSElasticBeanstalkWebTier
+      Path: /

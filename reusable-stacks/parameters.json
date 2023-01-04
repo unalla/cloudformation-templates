@@ -1,0 +1,10 @@
+[
+    {
+      "ParameterKey": "ApplicationName",
+      "ParameterValue": "ubn-dev"
+    },
+    {
+      "ParameterKey": "SubnetAZ",
+      "ParameterValue": "us-west-2a"
+    }
+  ]
